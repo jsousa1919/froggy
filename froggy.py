@@ -1,4 +1,5 @@
 import kivy
+import math
 import numpy as np
 import random
 
@@ -30,13 +31,15 @@ class MainScreen(FloatLayout):
         self.parent.start_game()
 
 class Graphic(Image):
+    id = 'graphic'
     state = 0
-    angle = 0
+    angle = NumericProperty(0)
     @classmethod
     def get(cls, name):
         return 'assets/images/{}'.format(name)
 
 class Frog(Graphic):
+    id = 'frog'
     sources = [
         Graphic.get('froggy1.png'),
         Graphic.get('froggyleft.png'),
@@ -47,6 +50,7 @@ class FroggyGame(FloatLayout):
     frog = ObjectProperty(None)
     target = None
     hopping = False
+    id = 'game'
     speed = 5
 
     def frog_pos(self):
@@ -65,8 +69,7 @@ class FroggyGame(FloatLayout):
             self.frog_stop()
         else:
             new = (current + ((vector / mag) * self.speed))
-            self.frog.font_size = 64 + int(self.remoteness() * 128)
-        import ipdb; ipdb.set_trace() 
+            size = 64 + int(self.remoteness() * 128)
         self.frog.center_x, self.frog.center_y = map(float, new)
 
     def frog_stop(self):
@@ -81,6 +84,7 @@ class FroggyGame(FloatLayout):
             self.origin = self.frog_pos()
             self.target = np.array(touch.pos)
             self.vector = self.target - self.origin
+            self.frog.angle = (math.atan(self.vector[1] / (self.vector[0] + 1e-10)) * 360 / math.pi) - self.frog.angle
             self.halfway = self.origin + (self.vector / 2)
             self.distance = np.linalg.norm(self.vector)
             self.unit = self.vector / self.distance
