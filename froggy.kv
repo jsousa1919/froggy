@@ -39,3 +39,17 @@
             size_hint_y: .3
             font_size: 32
             text: 'Start'
+            on_press: root.start_game()
+
+<Wave@Label>:
+    text: '^'
+    font_size: 64
+
+<FroggyGame@FloatLayout>:
+    frog: frog
+    Wave:
+        id: frog
+        center_x: 100
+        center_y: 100
+    Wave:
+        pos_hint: {'x': .6, 'y': .6}
