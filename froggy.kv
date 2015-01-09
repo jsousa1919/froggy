@@ -1,0 +1,41 @@
+<Advertisement@Label>
+    canvas.before:
+        Color:
+            rgba: 1, 0, 0, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+<RootWidget>:
+    FloatLayout:
+        id: splash_screen
+        Advertisement:
+            pos_hint: {'x': 0, 'y': 0}
+            size_hint: 1, .1
+            text: 'Advertisement A'
+        Advertisement:
+            pos_hint: {'x': 0, 'y': .9}
+            size_hint: 1, .1
+            text: 'Advertisement B'
+        Button:
+            pos_hint: {'x': .3, 'y': .4}
+            size_hint: .4, .2
+            text: 'Cool Stuff! X)'
+            valign: 'middle'
+            halign: 'center'
+            on_press: root.load_main()
+
+<MainScreen>:
+    Label:
+        pos_hint_y: .1
+        halign: 'center'
+        font_size: 64
+        text: '[color=00FFFF]Froggy[/color]'
+        markup: True
+    BoxLayout:
+        pos_hint: {'x': .2, 'y': .2}
+        size_hint: .6, .7
+        Button:
+            size_hint_y: .3
+            font_size: 32
+            text: 'Start'
