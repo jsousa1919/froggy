@@ -45,9 +45,17 @@
     text: '^'
     font_size: 64
 
+<Graphic>:
+    source: self.sources[self.state]
+    canvas.before:
+        Rotate:
+            angle: root.angle
+            axis: 0, 0, 1
+            origin: root.center
+
 <FroggyGame@FloatLayout>:
     frog: frog
-    Wave:
+    Frog:
         id: frog
         center_x: 100
         center_y: 100
