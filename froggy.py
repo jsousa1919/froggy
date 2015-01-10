@@ -5,7 +5,7 @@ import random
 
 from kivy.app import App
 from kivy.clock import Clock
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, Rectangle, Line
 from kivy.properties import NumericProperty, ObjectProperty, ListProperty
 from kivy.uix.button import Button
 from kivy.uix.image import Image
@@ -84,7 +84,8 @@ class FroggyGame(FloatLayout):
             self.origin = self.frog_pos()
             self.target = np.array(touch.pos)
             self.vector = self.target - self.origin
-            self.frog.angle = (math.atan(self.vector[1] / (self.vector[0] + 1e-10)) * 360 / math.pi) - self.frog.angle
+            #import ipdb; ipdb.set_trace() 
+            self.frog.angle = math.atan2(self.vector[1], (self.vector[0] + 1e-10)) * 180 / math.pi
             self.halfway = self.origin + (self.vector / 2)
             self.distance = np.linalg.norm(self.vector)
             self.unit = self.vector / self.distance

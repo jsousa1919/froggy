@@ -48,10 +48,13 @@
 <Graphic>:
     source: self.sources[self.state]
     canvas.before:
+        PushMatrix
         Rotate:
             angle: root.angle
             axis: 0, 0, 1
             origin: root.center
+    canvas.after:
+        PopMatrix
 
 <FroggyGame@FloatLayout>:
     frog: frog
