@@ -2,6 +2,7 @@ import kivy
 import math
 import numpy as np
 import random
+import time
 
 from kivy.app import App
 from kivy.clock import Clock
@@ -46,12 +47,19 @@ class Frog(Graphic):
         Graphic.get('froggyright.png')
     ]
 
+    def change_state(self, state):
+        self.source = self.sources[state]
+
 class FroggyGame(FloatLayout):
     frog = ObjectProperty(None)
     target = None
     hopping = False
     id = 'game'
-    speed = 5
+    speed = 8
+
+    def __init__(self, *args, **kwargs):
+        super(FroggyGame, self).__init__(*args, **kwargs)
+        self.restart_idle()
 
     def frog_pos(self):
         return np.array((self.frog.center_x, self.frog.center_y))
@@ -69,7 +77,9 @@ class FroggyGame(FloatLayout):
             self.frog_stop()
         else:
             new = (current + ((vector / mag) * self.speed))
-            size = 64 + int(self.remoteness() * 128)
+            size = 40 + int(self.remoteness() * 40)
+            #self.frog.size = [size, size]
+            #import ipdb; ipdb.set_trace() 
         self.frog.center_x, self.frog.center_y = map(float, new)
 
     def frog_stop(self):
@@ -77,10 +87,25 @@ class FroggyGame(FloatLayout):
         self.frog.font_size = 64
         self.target = None
         self.origin = None
+        self.restart_idle()
+
+    def move_screen(self):
+        if self.tongue_pos:
+            self.toungue_pos -= self.screen_speed
+        if self.origin:
+            self.origin -= self.screen_speed
+        if self.target:
+            self.target -= self.screen_speed
+        if self.halfway:
+            self.halfway -= self.screen_speed
+        self.frog.pos -= self.screen_speed
     
     def on_touch_down(self, touch):
+        if self.hopping:
+            self.toungue_pos = np.array(touch.pos)
         if not self.hopping:
             self.hopping = True
+            self.frog.change_state(0)
             self.origin = self.frog_pos()
             self.target = np.array(touch.pos)
             self.vector = self.target - self.origin
@@ -91,9 +116,18 @@ class FroggyGame(FloatLayout):
             self.unit = self.vector / self.distance
             #self.frog.color = [random.random(), random.random(), random.random(), 1]
 
+    def restart_idle(self):
+        self.next_idle = time.time() + 5
+
+    def idle(self):
+        self.frog.change_state(random.randrange(0, len(self.frog.sources)))
+        self.next_idle += random.random() * 2 + 0.2
+
     def update(self, dt):
         if self.target is not None:
             self.frog_move()
+        elif time.time() > self.next_idle:
+            self.idle()
 
 class FroggyApp(App):
     def build(self):

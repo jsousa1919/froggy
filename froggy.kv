@@ -53,6 +53,11 @@
             angle: root.angle
             axis: 0, 0, 1
             origin: root.center
+        Color:
+            rgba: 1, 0, 0, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
     canvas.after:
         PopMatrix
 
@@ -62,5 +67,13 @@
         id: frog
         center_x: 100
         center_y: 100
+        size_hint: [None, None]
+        height: 80
+        scale: 2
     Wave:
         pos_hint: {'x': .6, 'y': .6}
+    Image:
+        pos_hint: {'x': .6, 'y': .6}
+        source: 'assets/images/froggy1.png'
+        size_hint: [None, None]
+        size: [80, 80]
