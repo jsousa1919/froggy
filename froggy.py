@@ -15,6 +15,9 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.widget import Widget
 
+
+FROG_SIZE = 80
+
 class RootWidget(FloatLayout):
     def load_main(self):
         self.clear_widgets()
@@ -59,6 +62,8 @@ class FroggyGame(FloatLayout):
 
     def __init__(self, *args, **kwargs):
         super(FroggyGame, self).__init__(*args, **kwargs)
+        self.frog.allow_stretch = True
+        self.frog.size = (FROG_SIZE, FROG_SIZE)
         self.restart_idle()
 
     def frog_pos(self):
@@ -77,14 +82,12 @@ class FroggyGame(FloatLayout):
             self.frog_stop()
         else:
             new = (current + ((vector / mag) * self.speed))
-            size = 40 + int(self.remoteness() * 40)
-            #self.frog.size = [size, size]
-            #import ipdb; ipdb.set_trace() 
+            size = FROG_SIZE + int(self.remoteness() * FROG_SIZE)
+            self.frog.size = [size, size]
         self.frog.center_x, self.frog.center_y = map(float, new)
 
     def frog_stop(self):
         self.hopping = False
-        self.frog.font_size = 64
         self.target = None
         self.origin = None
         self.restart_idle()
