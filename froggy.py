@@ -56,9 +56,13 @@ class Frog(Graphic):
 class FroggyGame(FloatLayout):
     frog = ObjectProperty(None)
     target = None
+    tongue_target = None
+    tongue_return = False
+    tongue_points = []
     hopping = False
     id = 'game'
     speed = 8
+    tongue_speed = 20
 
     def __init__(self, *args, **kwargs):
         super(FroggyGame, self).__init__(*args, **kwargs)
@@ -68,6 +72,10 @@ class FroggyGame(FloatLayout):
 
     def frog_pos(self):
         return np.array((self.frog.center_x, self.frog.center_y))
+
+    def tongue_catch(self, pos, return_=False):
+        self.tongue_target = pos
+        self.tongue_pos = self.frog_pos() 
 
     def remoteness(self):
         raw = np.abs(np.linalg.norm(self.frog_pos() - self.halfway))
@@ -82,9 +90,29 @@ class FroggyGame(FloatLayout):
             self.frog_stop()
         else:
             new = (current + ((vector / mag) * self.speed))
+            if self.tongue_target is not None:
+                self.tongue_target += (new - current)
             size = FROG_SIZE + int(self.remoteness() * FROG_SIZE)
             self.frog.size = [size, size]
         self.frog.center_x, self.frog.center_y = map(float, new)
+
+    def tongue_move(self):
+        begin = self.tongue_pos
+        end = self.tongue_target
+        vector = end - begin
+        mag = max(np.linalg.norm(vector), 1)
+        if mag <= self.tongue_speed:
+            new = end
+            if self.tongue_return:
+                self.tongue_target = None
+            else:
+                self.tongue_target = self.frog_pos()
+            self.tongue_return = not self.tongue_return
+        else:
+            new = (begin + ((vector / mag) * self.tongue_speed))
+        self.tongue_pos = new
+        self.tongue_points = map(float, list(np.hstack((self.frog_pos(), self.tongue_pos))))
+        print self.tongue_points
 
     def frog_stop(self):
         self.hopping = False
@@ -93,8 +121,8 @@ class FroggyGame(FloatLayout):
         self.restart_idle()
 
     def move_screen(self):
-        if self.tongue_pos:
-            self.toungue_pos -= self.screen_speed
+        if self.tongue_target:
+            self.toungue_target -= self.screen_speed
         if self.origin:
             self.origin -= self.screen_speed
         if self.target:
@@ -105,7 +133,7 @@ class FroggyGame(FloatLayout):
     
     def on_touch_down(self, touch):
         if self.hopping:
-            self.toungue_pos = np.array(touch.pos)
+            self.tongue_catch(touch.pos)
         if not self.hopping:
             self.hopping = True
             self.frog.change_state(0)
@@ -131,6 +159,8 @@ class FroggyGame(FloatLayout):
             self.frog_move()
         elif time.time() > self.next_idle:
             self.idle()
+        if self.tongue_target is not None:
+            self.tongue_move()
 
 class FroggyApp(App):
     def build(self):
