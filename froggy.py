@@ -132,7 +132,7 @@ class FroggyGame(FloatLayout):
         self.frog.pos -= self.screen_speed
     
     def on_touch_down(self, touch):
-        if self.hopping:
+        if self.hopping and self.tongue_target is None:
             self.tongue_catch(touch.pos)
         if not self.hopping:
             self.hopping = True
