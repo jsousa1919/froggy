@@ -56,6 +56,7 @@ class Frog(Graphic):
 class FroggyGame(FloatLayout):
     frog = ObjectProperty(None)
     target = None
+    tongue = None
     tongue_target = None
     tongue_return = False
     tongue_points = []
@@ -73,6 +74,9 @@ class FroggyGame(FloatLayout):
     def frog_pos(self):
         return np.array((self.frog.center_x, self.frog.center_y))
 
+    def frog_head(self):
+        return self.frog_pos() + ((self.vector / np.linalg.norm(self.vector)) * (FROG_SIZE * (3.0 / 8.0))) 
+
     def tongue_catch(self, pos, return_=False):
         self.tongue_target = pos
         self.tongue_pos = self.frog_pos() 
@@ -83,13 +87,13 @@ class FroggyGame(FloatLayout):
 
     def frog_move(self):
         current = self.frog_pos()
-        vector = self.target - current
-        mag = max(np.linalg.norm(vector), 1)
+        self.vector = self.target - current
+        mag = max(np.linalg.norm(self.vector), 1)
         if mag <= self.speed:
             new = self.target
             self.frog_stop()
         else:
-            new = (current + ((vector / mag) * self.speed))
+            new = (current + ((self.vector / mag) * self.speed))
             if self.tongue_target is not None:
                 self.tongue_target += (new - current)
             size = FROG_SIZE + int(self.remoteness() * FROG_SIZE)
@@ -106,12 +110,15 @@ class FroggyGame(FloatLayout):
             if self.tongue_return:
                 self.tongue_target = None
             else:
-                self.tongue_target = self.frog_pos()
+                self.tongue_target = self.frog_head()
             self.tongue_return = not self.tongue_return
         else:
-            new = (begin + ((vector / mag) * self.tongue_speed))
+            new = (begin + ((vector / mag) * self.tongue_speed)) 
         self.tongue_pos = new
-        self.tongue_points = map(float, list(np.hstack((self.frog_pos(), self.tongue_pos))))
+        self.tongue_points = map(float, list(np.hstack((self.frog_head(), self.tongue_pos))))
+        with self.canvas:
+            Color(1, .7, .7)
+            self.tongue = Line(points=self.tongue_points, width=5)
         print self.tongue_points
 
     def frog_stop(self):
@@ -155,6 +162,8 @@ class FroggyGame(FloatLayout):
         self.next_idle += random.random() * 2 + 0.2
 
     def update(self, dt):
+        if self.tongue:
+            self.canvas.remove(self.tongue)
         if self.target is not None:
             self.frog_move()
         elif time.time() > self.next_idle:
