@@ -28,6 +28,9 @@ class RootWidget(FloatLayout):
         self.clear_widgets()
         self.game = FroggyGame()
         self.add_widget(self.game)
+        with self.game.canvas.before:
+            Color(.5, .5, 1)
+            Rectangle(pos=self.pos, size=self.size)
         Clock.schedule_interval(self.game.update, 1.0 / 60.0)
 
 class MainScreen(FloatLayout):
@@ -55,7 +58,9 @@ class Frog(Graphic):
 
 class FroggyGame(FloatLayout):
     frog = ObjectProperty(None)
+    touch_time = None
     target = None
+    vector = np.array((0, 1))
     tongue = None
     tongue_target = None
     tongue_return = False
@@ -75,7 +80,9 @@ class FroggyGame(FloatLayout):
         return np.array((self.frog.center_x, self.frog.center_y))
 
     def frog_head(self):
-        return self.frog_pos() + ((self.vector / np.linalg.norm(self.vector)) * (FROG_SIZE * (3.0 / 8.0))) 
+        rad = self.frog.angle * np.pi / 180
+        vector = np.array((math.cos(rad), math.sin(rad)))
+        return self.frog_pos() + np.array((vector * FROG_SIZE * (3.0 / 8.0))) 
 
     def tongue_catch(self, pos, return_=False):
         self.tongue_target = pos
@@ -125,7 +132,7 @@ class FroggyGame(FloatLayout):
         self.hopping = False
         self.target = None
         self.origin = None
-        self.restart_idle()
+        self.frog_size = (FROG_SIZE, FROG_SIZE)
 
     def move_screen(self):
         if self.tongue_target:
@@ -137,22 +144,40 @@ class FroggyGame(FloatLayout):
         if self.halfway:
             self.halfway -= self.screen_speed
         self.frog.pos -= self.screen_speed
+
+    def set_angle_from_vector(self, vector):
+        self.frog.angle = math.atan2(vector[1], (vector[0] + 1e-10)) * 180 / math.pi
+
+    @property
+    def is_active(self):
+        return self.hopping or self.tongue_target is not None
     
     def on_touch_down(self, touch):
-        if self.hopping and self.tongue_target is None:
-            self.tongue_catch(touch.pos)
-        if not self.hopping:
-            self.hopping = True
-            self.frog.change_state(0)
-            self.origin = self.frog_pos()
-            self.target = np.array(touch.pos)
-            self.vector = self.target - self.origin
-            #import ipdb; ipdb.set_trace() 
-            self.frog.angle = math.atan2(self.vector[1], (self.vector[0] + 1e-10)) * 180 / math.pi
-            self.halfway = self.origin + (self.vector / 2)
-            self.distance = np.linalg.norm(self.vector)
-            self.unit = self.vector / self.distance
-            #self.frog.color = [random.random(), random.random(), random.random(), 1]
+        self.touch_time = time.time()
+
+    def on_touch_move(self, touch):
+        if not self.is_active:
+            self.set_angle_from_vector(np.array(touch.pos) - self.frog_pos())
+
+    def on_touch_up(self, touch):
+        if self.touch_time and not self.is_active:
+            self.set_angle_from_vector(np.array(touch.pos) - self.frog_pos())
+            if (self.hopping or time.time() - self.touch_time <= 0.4) and self.tongue_target is None:
+                self.tongue_catch(touch.pos)
+            if time.time() - self.touch_time > 0.4 and not self.hopping:
+                self.hopping = True
+                self.frog.change_state(0)
+                self.origin = self.frog_pos()
+                self.target = np.array(touch.pos)
+                self.vector = self.target - self.origin
+                #import ipdb; ipdb.set_trace() 
+                self.set_angle_from_vector(self.vector)
+                self.halfway = self.origin + (self.vector / 2)
+                self.distance = np.linalg.norm(self.vector)
+                self.unit = self.vector / self.distance
+                #self.frog.color = [random.random(), random.random(), random.random(), 1]
+            self.touch_time = None
+            self.restart_idle()
 
     def restart_idle(self):
         self.next_idle = time.time() + 5
@@ -164,6 +189,7 @@ class FroggyGame(FloatLayout):
     def update(self, dt):
         if self.tongue:
             self.canvas.remove(self.tongue)
+            self.tongue = None
         if self.target is not None:
             self.frog_move()
         elif time.time() > self.next_idle:
