@@ -58,54 +58,60 @@ class Frog(Graphic):
 
 class FroggyGame(FloatLayout):
     frog = ObjectProperty(None)
-    touch_time = None
+    frog_pos = np.array((400, 300))
     target = None
+    halfway = None
+    tongue_target = None
+    game_points = [
+        'frog_pos',
+        'halfway',
+        'target',
+        'tongue_target'
+    ]
+    tongue_points = []
+    touch_time = None
     vector = np.array((0, 1))
     tongue = None
-    tongue_target = None
     tongue_return = False
-    tongue_points = []
     hopping = False
     id = 'game'
     speed = 8
     tongue_speed = 20
+    game_speed = 0.1
 
     def __init__(self, *args, **kwargs):
         super(FroggyGame, self).__init__(*args, **kwargs)
         self.frog.allow_stretch = True
         self.frog.size = (FROG_SIZE, FROG_SIZE)
+        self.frog.angle = 90
         self.restart_idle()
-
-    def frog_pos(self):
-        return np.array((self.frog.center_x, self.frog.center_y))
 
     def frog_head(self):
         rad = self.frog.angle * np.pi / 180
         vector = np.array((math.cos(rad), math.sin(rad)))
-        return self.frog_pos() + np.array((vector * FROG_SIZE * (3.0 / 8.0))) 
+        return self.frog_pos + np.array((vector * FROG_SIZE * (3.0 / 8.0))) 
 
     def tongue_catch(self, pos, return_=False):
         self.tongue_target = pos
-        self.tongue_pos = self.frog_pos() 
+        self.tongue_pos = self.frog_pos.copy()
 
     def remoteness(self):
-        raw = np.abs(np.linalg.norm(self.frog_pos() - self.halfway))
+        raw = np.abs(np.linalg.norm(self.frog_pos - self.halfway))
         return 1 - (2 * raw / self.distance)
 
     def frog_move(self):
-        current = self.frog_pos()
+        current = self.frog_pos.copy()
         self.vector = self.target - current
         mag = max(np.linalg.norm(self.vector), 1)
         if mag <= self.speed:
-            new = self.target
+            self.frog_pos = self.target
             self.frog_stop()
         else:
-            new = (current + ((self.vector / mag) * self.speed))
+            self.frog_pos = (current + ((self.vector / mag) * self.speed))
             if self.tongue_target is not None:
                 self.tongue_target += (new - current)
             size = FROG_SIZE + int(self.remoteness() * FROG_SIZE)
             self.frog.size = [size, size]
-        self.frog.center_x, self.frog.center_y = map(float, new)
 
     def tongue_move(self):
         begin = self.tongue_pos
@@ -122,28 +128,24 @@ class FroggyGame(FloatLayout):
         else:
             new = (begin + ((vector / mag) * self.tongue_speed)) 
         self.tongue_pos = new
-        self.tongue_points = map(float, list(np.hstack((self.frog_head(), self.tongue_pos))))
-        with self.canvas:
-            Color(1, .7, .7)
-            self.tongue = Line(points=self.tongue_points, width=5)
-        print self.tongue_points
+        self.tongue_points = (self.frog_head(), self.tongue_pos)
 
     def frog_stop(self):
+        self.frog_pos = self.target
         self.hopping = False
         self.target = None
         self.origin = None
         self.frog_size = (FROG_SIZE, FROG_SIZE)
+        self.restart_idle()
 
     def move_screen(self):
-        if self.tongue_target:
-            self.toungue_target -= self.screen_speed
-        if self.origin:
-            self.origin -= self.screen_speed
-        if self.target:
-            self.target -= self.screen_speed
-        if self.halfway:
-            self.halfway -= self.screen_speed
-        self.frog.pos -= self.screen_speed
+        change = np.array((0, self.game_speed))
+        for attr in self.game_points:
+            points = getattr(self, attr)
+            if points is not None and len(points):
+                setattr(self, attr, points - change)
+        if self.tongue:
+            self.tongue_points = [arr - change for arr in self.tongue_points]
 
     def set_angle_from_vector(self, vector):
         self.frog.angle = math.atan2(vector[1], (vector[0] + 1e-10)) * 180 / math.pi
@@ -157,17 +159,19 @@ class FroggyGame(FloatLayout):
 
     def on_touch_move(self, touch):
         if not self.is_active:
-            self.set_angle_from_vector(np.array(touch.pos) - self.frog_pos())
+            self.set_angle_from_vector(np.array(touch.pos) - self.frog_pos)
 
     def on_touch_up(self, touch):
+        thresh = max(0, 0.4 - (self.game_speed / 20))
+        print thresh
         if self.touch_time and not self.is_active:
-            self.set_angle_from_vector(np.array(touch.pos) - self.frog_pos())
-            if (self.hopping or time.time() - self.touch_time <= 0.4) and self.tongue_target is None:
+            self.set_angle_from_vector(np.array(touch.pos) - self.frog_pos)
+            if (self.hopping or time.time() - self.touch_time > thresh) and self.tongue_target is None:
                 self.tongue_catch(touch.pos)
-            if time.time() - self.touch_time > 0.4 and not self.hopping:
+            if time.time() - self.touch_time <= thresh and not self.hopping:
                 self.hopping = True
                 self.frog.change_state(0)
-                self.origin = self.frog_pos()
+                self.origin = self.frog_pos.copy()
                 self.target = np.array(touch.pos)
                 self.vector = self.target - self.origin
                 #import ipdb; ipdb.set_trace() 
@@ -180,22 +184,33 @@ class FroggyGame(FloatLayout):
             self.restart_idle()
 
     def restart_idle(self):
-        self.next_idle = time.time() + 5
+        self.frog.change_state(0)
+        self.next_idle = time.time() + (4 - (10 * self.game_speed))
 
     def idle(self):
         self.frog.change_state(random.randrange(0, len(self.frog.sources)))
-        self.next_idle += random.random() * 2 + 0.2
+        self.next_idle += (random.random() * 2 + (0.5 - (self.game_speed / 5.0))) 
 
     def update(self, dt):
         if self.tongue:
             self.canvas.remove(self.tongue)
             self.tongue = None
-        if self.target is not None:
-            self.frog_move()
         elif time.time() > self.next_idle:
             self.idle()
+
+        if self.target is not None:
+            self.frog_move()
+        self.move_screen()
+        if self.game_speed < 4:
+            self.game_speed += 0.001
+
         if self.tongue_target is not None:
             self.tongue_move()
+            with self.canvas:
+                Color(1, .7, .7)
+                points = map(float, np.hstack(self.tongue_points))
+                self.tongue = Line(points=points, width=5)
+        self.frog.center_x, self.frog.center_y = map(float, self.frog_pos)
 
 class FroggyApp(App):
     def build(self):
