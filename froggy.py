@@ -58,6 +58,7 @@ class Frog(Graphic):
 
 class FroggyGame(FloatLayout):
     frog = ObjectProperty(None)
+
     frog_pos = np.array((400, 300))
     target = None
     halfway = None
@@ -68,16 +69,23 @@ class FroggyGame(FloatLayout):
         'target',
         'tongue_target'
     ]
-    tongue_points = []
+
     touch_time = None
+    hopping = False
     vector = np.array((0, 1))
+
     tongue = None
     tongue_return = False
-    hopping = False
+    tongue_points = []
+
     id = 'game'
     speed = 8
     tongue_speed = 20
     game_speed = 0.1
+    game_speed_increment = 0.002
+    points = NumericProperty(0)
+    tick = 0
+    tick_mod = 100
 
     def __init__(self, *args, **kwargs):
         super(FroggyGame, self).__init__(*args, **kwargs)
@@ -192,6 +200,11 @@ class FroggyGame(FloatLayout):
         self.next_idle += (random.random() * 2 + (0.5 - (self.game_speed / 5.0))) 
 
     def update(self, dt):
+        if self.tick % self.tick_mod == 0:
+            self.points += self.game_speed * (1 / self.game_speed_increment)
+            self.tick_mod = max(self.tick_mod - 2, 5)
+        self.tick += 1
+
         if self.tongue:
             self.canvas.remove(self.tongue)
             self.tongue = None
@@ -202,7 +215,7 @@ class FroggyGame(FloatLayout):
             self.frog_move()
         self.move_screen()
         if self.game_speed < 4:
-            self.game_speed += 0.001
+            self.game_speed += self.game_speed_increment
 
         if self.tongue_target is not None:
             self.tongue_move()
@@ -210,7 +223,13 @@ class FroggyGame(FloatLayout):
                 Color(1, .7, .7)
                 points = map(float, np.hstack(self.tongue_points))
                 self.tongue = Line(points=points, width=5)
+
         self.frog.center_x, self.frog.center_y = map(float, self.frog_pos)
+        if self.frog.center_y < 0:
+            # self.lose()
+            pass
+
+        print self.frog.center_y
 
 class FroggyApp(App):
     def build(self):
