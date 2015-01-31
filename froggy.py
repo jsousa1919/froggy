@@ -47,6 +47,7 @@ class Graphic(Image):
 
 class Frog(Graphic):
     id = 'frog'
+    leaf = None
     sources = [
         Graphic.get('froggy1.png'),
         Graphic.get('froggyleft.png'),
@@ -55,6 +56,41 @@ class Frog(Graphic):
 
     def change_state(self, state):
         self.source = self.sources[state]
+
+class Fly(Widget):
+    def __init__(self):
+        self.graphic = None
+
+    def move(self):
+        pass
+
+class Leaf(Widget):
+    def __init__(self, parent):
+        self.parent = parent
+        self.vx = self.vy = 0
+        self.graphic = None
+        self.reposition(2.0, -400)
+
+    def reposition(self, scale=1.0, dist=0, vx=0, vy=0):
+        self.x = int(random.randrange(600))
+        self.y = 800 + int(random.randrange(800) * scale) + dist
+        self.vx = vx or self.vx
+        self.vy = vy or self.vy
+
+    def move(self):
+        if self.graphic:
+            self.parent.canvas.remove(self.graphic)
+        if self.y < 800:
+            newx = self.x + self.vx
+            if newx > 600 or newx < 0:
+                self.vx = -self.vx
+                newx = self.x + self.vx
+            self.x = newx
+        self.y -= self.vy
+        with self.parent.canvas:
+            Color(0, 1, 0)
+            self.graphic = Line(circle=(self.x, self.y, 20))
+        return (self.y + 20) > 0
 
 class FroggyGame(FloatLayout):
     frog = ObjectProperty(None)
@@ -65,8 +101,6 @@ class FroggyGame(FloatLayout):
     tongue_target = None
     game_points = [
         'frog_pos',
-        'halfway',
-        'target',
         'tongue_target'
     ]
 
@@ -94,6 +128,11 @@ class FroggyGame(FloatLayout):
         self.frog.angle = 90
         self.restart_idle()
 
+        self.leaves = []
+        for i in range(10):
+            leaf = Leaf(self)
+            self.leaves.append(leaf)
+
     def frog_head(self):
         rad = self.frog.angle * np.pi / 180
         vector = np.array((math.cos(rad), math.sin(rad)))
@@ -114,12 +153,14 @@ class FroggyGame(FloatLayout):
         if mag <= self.speed:
             self.frog_pos = self.target
             self.frog_stop()
+            return True
         else:
             self.frog_pos = (current + ((self.vector / mag) * self.speed))
             if self.tongue_target is not None:
                 self.tongue_target += (new - current)
             size = FROG_SIZE + int(self.remoteness() * FROG_SIZE)
             self.frog.size = [size, size]
+            return False
 
     def tongue_move(self):
         begin = self.tongue_pos
@@ -148,10 +189,16 @@ class FroggyGame(FloatLayout):
 
     def move_screen(self):
         change = np.array((0, self.game_speed))
-        for attr in self.game_points:
-            points = getattr(self, attr)
-            if points is not None and len(points):
-                setattr(self, attr, points - change)
+        #for attr in self.game_points:
+        #    points = getattr(self, attr)
+        #    if points is not None and len(points):
+        #        setattr(self, attr, points - change)
+        if self.tongue_target is not None and len(self.tongue_target):
+            self.tongue_target -= change
+        if self.frog_pos is not None and len(self.frog_pos):
+            self.frog_pos -= change
+            if self.frog.leaf:
+                self.frog_pos[0] += self.frog.leaf.vx
         if self.tongue:
             self.tongue_points = [arr - change for arr in self.tongue_points]
 
@@ -171,12 +218,11 @@ class FroggyGame(FloatLayout):
 
     def on_touch_up(self, touch):
         thresh = max(0, 0.4 - (self.game_speed / 20))
-        print thresh
         if self.touch_time and not self.is_active:
             self.set_angle_from_vector(np.array(touch.pos) - self.frog_pos)
-            if (self.hopping or time.time() - self.touch_time > thresh) and self.tongue_target is None:
+            if (self.hopping or time.time() - self.touch_time < thresh) and self.tongue_target is None:
                 self.tongue_catch(touch.pos)
-            if time.time() - self.touch_time <= thresh and not self.hopping:
+            if time.time() - self.touch_time >= thresh and not self.hopping:
                 self.hopping = True
                 self.frog.change_state(0)
                 self.origin = self.frog_pos.copy()
@@ -211,8 +257,9 @@ class FroggyGame(FloatLayout):
         elif time.time() > self.next_idle:
             self.idle()
 
+        landing = False
         if self.target is not None:
-            self.frog_move()
+            landing = self.frog_move()
         self.move_screen()
         if self.game_speed < 4:
             self.game_speed += self.game_speed_increment
@@ -229,7 +276,21 @@ class FroggyGame(FloatLayout):
             # self.lose()
             pass
 
-        print self.frog.center_y
+        alive = not landing
+        for leaf in self.leaves:
+            if not alive:
+                if self.frog.collide_point(leaf.x, leaf.y):
+                    alive = True
+                    self.frog.leaf = leaf
+            leaf.vy = self.game_speed
+            active = leaf.move()
+            if not active:
+                print "REPOSITION"
+                leaf.reposition(vx=self.game_speed / 2.0)
+
+        if not alive:
+            # self.drown()
+            pass
 
 class FroggyApp(App):
     def build(self):
